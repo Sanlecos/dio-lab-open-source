@@ -14,6 +14,7 @@ from kivymd.uix.tab import MDTabsBase, MDTabs
 from kivymd.uix.floatlayout import MDFloatLayout
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.list import OneLineListItem
+from kivymd.uix.button import MDIconButton
 from kivy.uix.anchorlayout import AnchorLayout
 
 import gspread
@@ -190,38 +191,69 @@ def styled_field(hint_text, key, multiline=False, mask_type=None, width=None):
     return field
 
 
+class DropdownField(BoxLayout):
+    def __init__(self, hint_text, key, items, **kwargs):
+        super().__init__(orientation='horizontal', size_hint_y=None, height=dp(56), **kwargs)
+        
+        self.key = key
+        self.items = items
+        
+        # Create the text field
+        self.text_field = MDTextField(
+            hint_text=hint_text,
+            mode="rectangle",
+            readonly=True,
+            size_hint_x=0.9
+        )
+        
+        # Create dropdown button
+        self.dropdown_button = MDIconButton(
+            icon="chevron-down",
+            size_hint_x=0.1,
+            pos_hint={"center_y": 0.5}
+        )
+        
+        # Create menu items
+        menu_items = []
+        for item in items:
+            menu_items.append({
+                "viewclass": "OneLineListItem",
+                "text": item,
+                "height": dp(56),
+                "on_release": lambda x=item: self.set_dropdown_value(x),
+            })
+        
+        self.dropdown = MDDropdownMenu(
+            caller=self.dropdown_button,
+            items=menu_items,
+            width_mult=4,
+        )
+        
+        # Bind events
+        self.dropdown_button.bind(on_release=lambda x: self.dropdown.open())
+        self.text_field.bind(on_touch_down=self.on_field_touch)
+        
+        # Add widgets
+        self.add_widget(self.text_field)
+        self.add_widget(self.dropdown_button)
+        
+        # Store references
+        dropdowns[key] = self.dropdown
+        campos[key] = self.text_field
+
+    def on_field_touch(self, instance, touch):
+        if instance.collide_point(*touch.pos):
+            self.dropdown.open()
+            return True
+        return False
+    
+    def set_dropdown_value(self, value):
+        self.text_field.text = value
+        self.dropdown.dismiss()
+
+
 def create_dropdown_field(hint_text, key, items):
-    field = MDTextField(
-        hint_text=hint_text,
-        mode="rectangle",
-        readonly=True,
-    )
-    campos[key] = field
-    
-    menu_items = []
-    for item in items:
-        menu_items.append({
-            "viewclass": "OneLineListItem",
-            "text": item,
-            "height": dp(56),
-            "on_release": lambda x=item: set_dropdown_value(key, x),
-        })
-    
-    dropdown = MDDropdownMenu(
-        caller=field,
-        items=menu_items,
-        width_mult=4,
-    )
-    dropdowns[key] = dropdown
-    
-    field.bind(on_focus=lambda instance, focus: dropdown.open() if focus else None)
-    
-    return field
-
-
-def set_dropdown_value(key, value):
-    campos[key].text = value
-    dropdowns[key].dismiss()
+    return DropdownField(hint_text, key, items)
 
 
 class Aba(BoxLayout, MDTabsBase):
